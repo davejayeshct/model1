@@ -7,12 +7,19 @@ let isRunning = false;
 // Debug mode - logs all steps
 const DEBUG = true;
 
+// Prediction tracking
+let predictionHistory = [];
+let predictionStats = {
+    class1Total: 0,
+    class2Total: 0,
+    count: 0
+};
+
 function debugLog(message, type = "info") {
     const timestamp = new Date().toLocaleTimeString();
     const logMessage = `[${timestamp}] ${message}`;
     console.log(logMessage);
     
-    // Also update status for important messages
     if (type === "important" || type === "error") {
         setStatus(logMessage, type === "error" ? "error" : "info");
     }
@@ -36,7 +43,6 @@ function checkLibraries() {
 // Initialize the model and setup webcam
 async function init() {
     try {
-        // Check if libraries are loaded
         if (!checkLibraries()) {
             debugLog("Required libraries not loaded", "error");
             return;
@@ -51,7 +57,6 @@ async function init() {
         debugLog("Model URL: " + modelURL, "important");
         debugLog("Metadata URL: " + metadataURL, "important");
         
-        // Check if tmImage.load exists
         if (typeof tmImage.load !== 'function') {
             throw new Error("tmImage.load function not found");
         }
@@ -67,7 +72,6 @@ async function init() {
         maxPredictions = model.getTotalClasses();
         debugLog("Number of classes: " + maxPredictions, "important");
 
-        // Setup webcam with error handling
         debugLog("Initializing webcam...", "important");
         
         const flip = true;
@@ -86,13 +90,11 @@ async function init() {
         isRunning = true;
         setStatus("✓ Webcam started! Model is ready.", "success");
         
-        // Append webcam canvas to the DOM
         const container = document.getElementById("webcam-container");
         container.innerHTML = "";
         container.appendChild(webcam.canvas);
         debugLog("Webcam canvas added to page", "important");
 
-        // Setup label container for predictions
         labelContainer = document.getElementById("label-container");
         labelContainer.innerHTML = "";
         
@@ -104,11 +106,9 @@ async function init() {
         
         debugLog("Prediction container initialized", "important");
 
-        // Toggle button visibility
         document.getElementById("startBtn").style.display = "none";
         document.getElementById("stopBtn").style.display = "flex";
 
-        // Start the prediction loop
         debugLog("Starting prediction loop...", "important");
         window.requestAnimationFrame(loop);
 
@@ -121,7 +121,6 @@ async function init() {
         
         let errorMsg = "Error initializing webcam";
         
-        // Specific error messages
         if (error.name === "NotAllowedError" || error.message.includes("NotAllowedError")) {
             errorMsg = "❌ Camera access denied. Please allow webcam access in browser settings.";
         } else if (error.name === "NotFoundError" || error.message.includes("NotFoundError")) {
@@ -138,7 +137,6 @@ async function init() {
         
         setStatus(errorMsg, "error");
         
-        // Re-enable start button
         document.getElementById("startBtn").style.display = "flex";
         document.getElementById("stopBtn").style.display = "none";
     }
@@ -163,6 +161,32 @@ async function predict() {
     try {
         const prediction = await model.predict(webcam.canvas);
 
+        // Track statistics
+        const class1Prob = parseFloat((prediction[0].probability * 100).toFixed(2));
+        const class2Prob = parseFloat((prediction[1].probability * 100).toFixed(2));
+        
+        predictionStats.class1Total += class1Prob;
+        predictionStats.class2Total += class2Prob;
+        predictionStats.count += 1;
+        
+        // Store in history
+        predictionHistory.push({
+            class1: class1Prob,
+            class2: class2Prob
+        });
+        
+        // Keep last 100 predictions
+        if (predictionHistory.length > 100) {
+            predictionHistory.shift();
+        }
+        
+        // Every 30 predictions (about 1 second), log stats
+        if (predictionStats.count % 30 === 0) {
+            const avgClass1 = (predictionStats.class1Total / predictionStats.count).toFixed(2);
+            const avgClass2 = (predictionStats.class2Total / predictionStats.count).toFixed(2);
+            console.log(`📊 AVERAGE (last ${predictionStats.count} frames): Class 1: ${avgClass1}% | Class 2: ${avgClass2}%`);
+        }
+
         for (let i = 0; i < maxPredictions; i++) {
             const classPrediction = prediction[i];
             const probability = (classPrediction.probability * 100).toFixed(2);
@@ -174,6 +198,36 @@ async function predict() {
     }
 }
 
+// Get prediction statistics
+function getPredictionStats() {
+    if (predictionStats.count === 0) {
+        console.log("No predictions yet");
+        return;
+    }
+    
+    const avgClass1 = (predictionStats.class1Total / predictionStats.count).toFixed(2);
+    const avgClass2 = (predictionStats.class2Total / predictionStats.count).toFixed(2);
+    
+    console.log("===== PREDICTION STATISTICS =====");
+    console.log(`Total Frames Analyzed: ${predictionStats.count}`);
+    console.log(`Average Class 1: ${avgClass1}%`);
+    console.log(`Average Class 2: ${avgClass2}%`);
+    console.log(`Dominant Class: ${avgClass1 > avgClass2 ? 'Class 1' : 'Class 2'}`);
+    console.log(`Confidence: ${Math.abs(avgClass1 - avgClass2).toFixed(2)}%`);
+    console.log("==================================");
+}
+
+// Reset statistics
+function resetStats() {
+    predictionHistory = [];
+    predictionStats = {
+        class1Total: 0,
+        class2Total: 0,
+        count: 0
+    };
+    console.log("✓ Statistics reset");
+}
+
 // Stop the webcam
 function stopWebcam() {
     try {
@@ -181,6 +235,9 @@ function stopWebcam() {
             isRunning = false;
             webcam.stop();
             debugLog("Webcam stopped", "important");
+            
+            // Show final stats
+            getPredictionStats();
         }
         
         document.getElementById("webcam-container").innerHTML = 
@@ -223,3 +280,7 @@ window.addEventListener("load", () => {
 debugLog("=== SCRIPT LOADED ===", "important");
 debugLog("TensorFlow.js and Teachable Machine libraries are loading...", "important");
 debugLog("Model URL: " + URL, "important");
+
+// Make functions available in console
+window.getPredictionStats = getPredictionStats;
+window.resetStats = resetStats;
