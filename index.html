@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Teachable Machine Image Classification Model with Real-time Webcam Predictions">
+    <meta name="author" content="davejayeshct">
+    <title>Teachable Machine - Image Classification</title>
+    
+    <!-- External CSS -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- TensorFlow.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    
+    <!-- Teachable Machine Image Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <h1>🎥 Teachable Machine</h1>
+        <p class="subtitle">Real-time Image Classification with AI</p>
+
+        <!-- Status Message -->
+        <div id="status" class="status-message info">
+            Loading application...
+        </div>
+
+        <!-- Control Buttons -->
+        <div class="button-group">
+            <button id="startBtn" type="button" onclick="init()">Start Webcam</button>
+            <button id="stopBtn" type="button" onclick="stopWebcam()">Stop Webcam</button>
+        </div>
+
+        <!-- Webcam Display Container -->
+        <div id="webcam-container">
+            <p style="color: #999;">Webcam feed will appear here</p>
+        </div>
+
+        <!-- Predictions Display Container -->
+        <div id="label-container">
+            <!-- Predictions will be displayed here dynamically -->
+        </div>
+
+        <!-- Information Box -->
+        <div class="info-box">
+            <strong>ℹ️ How it works:</strong><br>
+            1. Click "Start Webcam" to activate your camera<br>
+            2. Allow browser access when prompted<br>
+            3. Real-time predictions appear below<br>
+            4. Click "Stop Webcam" to end the session
+        </div>
+    </div>
+
+    <!-- External JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>
