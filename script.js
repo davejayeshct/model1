@@ -13,18 +13,24 @@ async function init() {
         const metadataURL = URL + "metadata.json";
 
         // Load the model and metadata
+        console.log("Loading model from:", modelURL);
         model = await tmImage.load(modelURL, metadataURL);
         maxPredictions = model.getTotalClasses();
+        console.log("Model loaded. Total classes:", maxPredictions);
 
         // Setup webcam
         const flip = true; // Flip the webcam for mirror effect
         webcam = new tmImage.Webcam(200, 200, flip);
         
+        console.log("Setting up webcam...");
         await webcam.setup(); // Request access to the webcam
+        console.log("Webcam setup complete, starting playback...");
+        
         await webcam.play();
+        console.log("Webcam playback started");
         
         isRunning = true;
-        setStatus("Webcam started! Model is ready.", "success");
+        setStatus("✓ Webcam started! Model is ready.", "success");
         
         // Append webcam canvas to the DOM
         const container = document.getElementById("webcam-container");
@@ -41,12 +47,32 @@ async function init() {
             labelContainer.appendChild(div);
         }
 
+        // Toggle button visibility
+        document.getElementById("startBtn").style.display = "none";
+        document.getElementById("stopBtn").style.display = "flex";
+
         // Start the prediction loop
         window.requestAnimationFrame(loop);
 
     } catch (error) {
         console.error("Error initializing model:", error);
-        setStatus("Error: " + error.message, "error");
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+        
+        let errorMsg = "Error: " + error.message;
+        
+        // Specific error messages
+        if (error.message.includes("NotAllowedError")) {
+            errorMsg = "Camera access denied. Please allow webcam access in browser settings.";
+        } else if (error.message.includes("NotFoundError")) {
+            errorMsg = "No webcam found. Please connect a camera device.";
+        } else if (error.message.includes("network")) {
+            errorMsg = "Network error. Check your internet connection.";
+        } else if (error.message === "undefined") {
+            errorMsg = "Webcam initialization failed. Please check browser permissions or try a different browser.";
+        }
+        
+        setStatus(errorMsg, "error");
     }
 }
 
@@ -87,6 +113,11 @@ function stopWebcam() {
         webcam.stop();
         document.getElementById("webcam-container").innerHTML = 
             '<p style="color: #999; padding: 20px;">Webcam stopped</p>';
+        
+        // Toggle button visibility
+        document.getElementById("startBtn").style.display = "block";
+        document.getElementById("stopBtn").style.display = "none";
+        
         setStatus("Webcam stopped.", "info");
     }
 }
@@ -100,12 +131,13 @@ function setStatus(message, type = "info") {
 
 // Cleanup on page unload
 window.addEventListener("beforeunload", () => {
-    if (webcam) {
+    if (webcam && isRunning) {
         stopWebcam();
     }
 });
 
 // Initial status message
 window.addEventListener("load", () => {
+    console.log("Page loaded, application ready");
     setStatus("Click 'Start Webcam' to begin the model", "info");
 });
