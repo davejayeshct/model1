@@ -4,16 +4,32 @@ const URL = "https://teachablemachine.withgoogle.com/models/CW1lUc676/";
 let model, webcam, labelContainer, maxPredictions;
 let isRunning = false;
 
+// Debug mode - logs all steps
+const DEBUG = true;
+
+function debugLog(message, type = "info") {
+    const timestamp = new Date().toLocaleTimeString();
+    const logMessage = `[${timestamp}] ${message}`;
+    console.log(logMessage);
+    
+    // Also update status for important messages
+    if (type === "important" || type === "error") {
+        setStatus(logMessage, type === "error" ? "error" : "info");
+    }
+}
+
 // Check if Teachable Machine libraries are loaded
 function checkLibraries() {
-    console.log("Checking libraries...");
-    console.log("tf available:", typeof tf !== 'undefined');
-    console.log("tmImage available:", typeof tmImage !== 'undefined');
+    debugLog("Checking libraries...", "important");
+    debugLog("tf available: " + (typeof tf !== 'undefined'));
+    debugLog("tmImage available: " + (typeof tmImage !== 'undefined'));
     
     if (typeof tf === 'undefined' || typeof tmImage === 'undefined') {
-        setStatus("Error: Libraries failed to load. Please refresh the page.", "error");
+        debugLog("Error: Libraries failed to load", "error");
         return false;
     }
+    
+    debugLog("✓ All libraries loaded successfully", "important");
     return true;
 }
 
@@ -22,41 +38,50 @@ async function init() {
     try {
         // Check if libraries are loaded
         if (!checkLibraries()) {
-            console.error("Required libraries not loaded");
+            debugLog("Required libraries not loaded", "error");
             return;
         }
 
         setStatus("Loading model...", "info");
+        debugLog("Starting model initialization...", "important");
         
         const modelURL = URL + "model.json";
         const metadataURL = URL + "metadata.json";
 
-        console.log("Loading model from:", modelURL);
+        debugLog("Model URL: " + modelURL, "important");
+        debugLog("Metadata URL: " + metadataURL, "important");
         
         // Check if tmImage.load exists
         if (typeof tmImage.load !== 'function') {
             throw new Error("tmImage.load function not found");
         }
 
+        debugLog("Loading model from Google Teachable Machine...", "important");
+        const startTime = Date.now();
+        
         model = await tmImage.load(modelURL, metadataURL);
+        
+        const loadTime = Date.now() - startTime;
+        debugLog("✓ Model loaded successfully in " + loadTime + "ms", "important");
+        
         maxPredictions = model.getTotalClasses();
-        console.log("✓ Model loaded successfully. Classes:", maxPredictions);
+        debugLog("Number of classes: " + maxPredictions, "important");
 
         // Setup webcam with error handling
-        console.log("Initializing webcam...");
+        debugLog("Initializing webcam...", "important");
         
         const flip = true;
         webcam = new tmImage.Webcam(200, 200, flip);
         
-        console.log("Requesting camera access...");
+        debugLog("Requesting camera access...", "important");
         await webcam.setup({ width: 200, height: 200 });
         
-        console.log("✓ Webcam setup complete");
-        console.log("Starting webcam playback...");
+        debugLog("✓ Webcam setup complete", "important");
+        debugLog("Starting webcam playback...", "important");
         
         await webcam.play();
         
-        console.log("✓ Webcam playback started");
+        debugLog("✓ Webcam playback started", "important");
         
         isRunning = true;
         setStatus("✓ Webcam started! Model is ready.", "success");
@@ -65,6 +90,7 @@ async function init() {
         const container = document.getElementById("webcam-container");
         container.innerHTML = "";
         container.appendChild(webcam.canvas);
+        debugLog("Webcam canvas added to page", "important");
 
         // Setup label container for predictions
         labelContainer = document.getElementById("label-container");
@@ -75,22 +101,23 @@ async function init() {
             div.style.padding = "8px";
             labelContainer.appendChild(div);
         }
+        
+        debugLog("Prediction container initialized", "important");
 
         // Toggle button visibility
         document.getElementById("startBtn").style.display = "none";
         document.getElementById("stopBtn").style.display = "flex";
 
         // Start the prediction loop
-        console.log("Starting prediction loop...");
+        debugLog("Starting prediction loop...", "important");
         window.requestAnimationFrame(loop);
 
     } catch (error) {
-        console.error("========== ERROR ==========");
-        console.error("Error during initialization:", error);
-        console.error("Error name:", error.name);
-        console.error("Error message:", error.message);
-        console.error("Error stack:", error.stack);
-        console.error("===========================");
+        debugLog("========== ERROR ==========", "error");
+        debugLog("Error during initialization: " + error.message, "error");
+        debugLog("Error name: " + error.name, "error");
+        debugLog("Error stack: " + error.stack, "error");
+        debugLog("===========================", "error");
         
         let errorMsg = "Error initializing webcam";
         
@@ -125,7 +152,7 @@ async function loop() {
             await predict();
             window.requestAnimationFrame(loop);
         } catch (error) {
-            console.error("Error in prediction loop:", error);
+            debugLog("Error in prediction loop: " + error.message, "error");
             isRunning = false;
         }
     }
@@ -143,7 +170,7 @@ async function predict() {
             labelContainer.childNodes[i].innerHTML = predictionText;
         }
     } catch (error) {
-        console.error("Prediction error:", error);
+        debugLog("Prediction error: " + error.message, "error");
     }
 }
 
@@ -153,7 +180,7 @@ function stopWebcam() {
         if (webcam && isRunning) {
             isRunning = false;
             webcam.stop();
-            console.log("Webcam stopped");
+            debugLog("Webcam stopped", "important");
         }
         
         document.getElementById("webcam-container").innerHTML = 
@@ -164,7 +191,7 @@ function stopWebcam() {
         
         setStatus("Webcam stopped.", "info");
     } catch (error) {
-        console.error("Error stopping webcam:", error);
+        debugLog("Error stopping webcam: " + error.message, "error");
     }
 }
 
@@ -186,10 +213,13 @@ window.addEventListener("beforeunload", () => {
 
 // Initial status message when page loads
 window.addEventListener("load", () => {
-    console.log("Page loaded. Checking libraries...");
+    debugLog("=== PAGE LOADED ===", "important");
+    debugLog("Teachable Machine App Starting...", "important");
     checkLibraries();
     setStatus("Click 'Start Webcam' to begin the model", "info");
 });
 
 // Log script initialization
-console.log("Script loaded. TensorFlow.js and Teachable Machine are loading...");
+debugLog("=== SCRIPT LOADED ===", "important");
+debugLog("TensorFlow.js and Teachable Machine libraries are loading...", "important");
+debugLog("Model URL: " + URL, "important");
