@@ -15,6 +15,9 @@ let predictionStats = {
     count: 0
 };
 
+// Smoothing window - average last N predictions
+const SMOOTHING_WINDOW = 15; // ~0.5 seconds at 30fps
+
 function debugLog(message, type = "info") {
     const timestamp = new Date().toLocaleTimeString();
     const logMessage = `[${timestamp}] ${message}`;
@@ -142,6 +145,29 @@ async function init() {
     }
 }
 
+// Get smoothed average from last N predictions
+function getSmoothedAverage() {
+    if (predictionHistory.length === 0) {
+        return { class1: 0, class2: 0 };
+    }
+    
+    // Use last SMOOTHING_WINDOW predictions or all if less available
+    const window = predictionHistory.slice(-SMOOTHING_WINDOW);
+    
+    let class1Sum = 0;
+    let class2Sum = 0;
+    
+    for (let pred of window) {
+        class1Sum += pred.class1;
+        class2Sum += pred.class2;
+    }
+    
+    return {
+        class1: (class1Sum / window.length).toFixed(2),
+        class2: (class2Sum / window.length).toFixed(2)
+    };
+}
+
 // Main prediction loop
 async function loop() {
     if (isRunning) {
@@ -184,14 +210,23 @@ async function predict() {
         if (predictionStats.count % 30 === 0) {
             const avgClass1 = (predictionStats.class1Total / predictionStats.count).toFixed(2);
             const avgClass2 = (predictionStats.class2Total / predictionStats.count).toFixed(2);
-            console.log(`📊 AVERAGE (last ${predictionStats.count} frames): Class 1: ${avgClass1}% | Class 2: ${avgClass2}%`);
+            console.log(`📊 CUMULATIVE AVERAGE (${predictionStats.count} frames): Class 1: ${avgClass1}% | Class 2: ${avgClass2}%`);
         }
 
+        // Display SMOOTHED predictions (less shaky)
+        const smoothed = getSmoothedAverage();
+        
         for (let i = 0; i < maxPredictions; i++) {
-            const classPrediction = prediction[i];
-            const probability = (classPrediction.probability * 100).toFixed(2);
-            const predictionText = `<strong>${classPrediction.className}:</strong> ${probability}%`;
-            labelContainer.childNodes[i].innerHTML = predictionText;
+            const div = labelContainer.childNodes[i];
+            if (i === 0) {
+                // Class 1 - show smoothed value
+                const predictionText = `<strong>${prediction[i].className}:</strong> ${smoothed.class1}%`;
+                div.innerHTML = predictionText;
+            } else {
+                // Class 2 - show smoothed value
+                const predictionText = `<strong>${prediction[i].className}:</strong> ${smoothed.class2}%`;
+                div.innerHTML = predictionText;
+            }
         }
     } catch (error) {
         debugLog("Prediction error: " + error.message, "error");
@@ -207,13 +242,22 @@ function getPredictionStats() {
     
     const avgClass1 = (predictionStats.class1Total / predictionStats.count).toFixed(2);
     const avgClass2 = (predictionStats.class2Total / predictionStats.count).toFixed(2);
+    const confidence = Math.abs(avgClass1 - avgClass2).toFixed(2);
     
     console.log("===== PREDICTION STATISTICS =====");
     console.log(`Total Frames Analyzed: ${predictionStats.count}`);
     console.log(`Average Class 1: ${avgClass1}%`);
     console.log(`Average Class 2: ${avgClass2}%`);
     console.log(`Dominant Class: ${avgClass1 > avgClass2 ? 'Class 1' : 'Class 2'}`);
-    console.log(`Confidence: ${Math.abs(avgClass1 - avgClass2).toFixed(2)}%`);
+    console.log(`Confidence: ${confidence}%`);
+    
+    if (confidence > 70) {
+        console.log("✅ STRONG CONCEPTUAL SEPARATION (>70% confidence)");
+    } else if (confidence > 50) {
+        console.log("⚠️  MODERATE CONCEPTUAL SEPARATION (50-70% confidence)");
+    } else {
+        console.log("❌ WEAK CONCEPTUAL SEPARATION (<50% confidence)");
+    }
     console.log("==================================");
 }
 
