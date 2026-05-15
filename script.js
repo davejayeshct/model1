@@ -259,6 +259,12 @@ function getPredictionStats() {
         console.log("❌ WEAK CONCEPTUAL SEPARATION (<50% confidence)");
     }
     console.log("==================================");
+    return {
+        count: predictionStats.count,
+        class1: avgClass1,
+        class2: avgClass2,
+        confidence: confidence
+    };
 }
 
 // Reset statistics
@@ -324,7 +330,3 @@ window.addEventListener("load", () => {
 debugLog("=== SCRIPT LOADED ===", "important");
 debugLog("TensorFlow.js and Teachable Machine libraries are loading...", "important");
 debugLog("Model URL: " + URL, "important");
-
-// Make functions available in console
-window.getPredictionStats = getPredictionStats;
-window.resetStats = resetStats;
